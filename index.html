@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CriticalCare AI — Patient Monitoring System</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: #0d1117; color: #e6edf3; overflow: hidden; }
+    
+    /* === VIEW STATES CONTROL === */
+    .view-stage { display: none; min-height: 100vh; width: 100vw; }
+    .view-stage.active { display: flex; flex-direction: column; }
+    .db.active { display: grid; } 
+
+    /* === 1. SPLASH SCREEN STYLES === */
+    #stage-splash { 
+      position: relative;
+      justify-content: center; 
+      align-items: center; 
+      background: #090d12; 
+      gap: 16px;
+    }
+    .splash-bg-graphic {
+      width: 220px;
+      height: 220px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M33.4,22 C23.5,16 16.5,27.5,16.5,41.5 C16.5,50 19,54 20,55.5 M29,64 L48.5,82.5 C49.3,83.3,50.7,83.3,51.5,82.5 L83.5,52 C91.5,43,87.5,23,73.5,22 C64.5,21.5,54,32,54,32' stroke='%2300a8ff' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M12.5,55 L23,55 L28,50 L33,60 L37.5,23 L42,70 L46,57 L50,57 L53.5,46 L57,44 L60.5,55 L64,48 L67,55 L72.5,55' stroke='%233a1ca4' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      filter: drop-shadow(0 0 20px rgba(0, 168, 255, 0.2));
+      animation: pulseGlow 2.5s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(0, 168, 255, 0.15)); }
+      50% { transform: scale(1.03); filter: drop-shadow(0 0 30px rgba(0, 168, 255, 0.4)); }
+    }
+    .splash-title { font-size: 26px; font-weight: 700; letter-spacing: 3px; color: #ffffff; text-transform: uppercase; margin-top: 12px; }
+    .splash-loading-text { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 2px; margin-top: -4px; }
+
+    /* === 2. AUTHENTICATION MODULE STYLES === */
+    #stage-auth { justify-content: center; align-items: center; background: #0d1117; }
+    .auth-card { background: #161b22; border: 0.5px solid #21262d; border-radius: 12px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); text-align: center; }
+    .auth-card i { font-size: 44px; color: #1f6feb; margin-bottom: 16px; display: inline-block; }
+    .auth-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; color: #ffffff; }
+    .auth-sub { font-size: 13px; color: #8b949e; margin-bottom: 24px; }
+    .auth-panel { display: none; }
+    .auth-panel.active { display: block; }
+    .input-group { text-align: left; margin-bottom: 16px; }
+    .input-group label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-group input { width: 100%; background: #0d1117; border: 0.5px solid #30363d; border-radius: 6px; padding: 10px 14px; color: #e6edf3; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    .input-group input:focus { border-color: #58a6ff; }
+    .auth-btn { width: 100%; background: #1f6feb; color: #ffffff; border: none; border-radius: 6px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 10px; }
+    .auth-btn:hover { background: #388bfd; }
+    .switch-prompt { font-size: 13px; color: #8b949e; margin-top: 20px; }
+    .switch-link { color: #58a6ff; cursor: pointer; text-decoration: none; font-weight: 500; }
+    .switch-link:hover { text-decoration: underline; }
+
+    /* === 3. DASHBOARD MODULE STYLES === */
+    .db { min-height: 100vh; color: #e6edf3; padding: 16px; }
+    .hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 0.5px solid #21262d; }
+    .hdr-left { display: flex; align-items: center; gap: 12px; }
+    .hdr-logo { width: 36px; height: 36px; background: #1f6feb; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .hdr-title { font-size: 16px; font-weight: 500; color: #e6edf3; }
+    .hdr-sub { font-size: 12px; color: #8b949e; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; animation: pulse 1.5s infinite; display: inline-block; margin-right: 6px; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+    .hdr-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: #8b949e; }
+    .time-badge { background: #161b22; border: 0.5px solid #21262d; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: #e6edf3; font-variant-numeric: tabular-nums; }
+    .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .metric-card { background: #161b22; border: 0.5px solid #21262d; border-radius: 10px; padding: 14px 16px; }
+    .metric-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .metric-val { font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .metric-sub { font-size: 11px; color: #8b949e; margin-top: 4px; }
+    .c-red { color: #f85149; } .c-orange { color: #e3b341; } .c-green { color: #3fb950; } .c-blue { color: #58a6ff; }
+    
+    .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+    .panel { background: #161b22; border: 0.5px solid #21262d; border-radius: 10px; overflow: hidden; }
+    .panel-hdr { padding: 12px 16px; border-bottom: 0.5px solid #21262d; display: flex; justify-content: space-between; align-items: center; }
+    .panel-title { font-size: 13px; font-weight: 500; color: #e6edf3; }
+    .panel-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: rgba(88,166,255,0.15); color: #58a6ff; }
+    .patients-list { overflow-y: auto; max-height: 440px; }
+    .patient-row { padding: 12px 16px; border-bottom: 0.5px solid #21262d; cursor: pointer; transition: background 0.15s; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+    .patient-row:hover { background: #1c2128; }
+    .patient-row.selected { background: #1c2128; border-left: 3px solid #58a6ff; }
+    .risk-badge { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+    .rb-critical { background: rgba(248,81,73,0.15); color: #f85149; border: 1.5px solid rgba(248,81,73,0.4); animation: criticalFlash 1s infinite alternate; }
+    @keyframes criticalFlash { from { box-shadow: 0 0 2px #f85149; } to { box-shadow: 0 0 12px #f85149; } }
+    .rb-warning { background: rgba(227,179,65,0.15); color: #e3b341; border: 1.5px solid rgba(227,179,65,0.4); }
+    .rb-stable { background: rgba(63,185,80,0.1); color: #3fb950; border: 1.5px solid rgba(63,185,80,0.3); }
+    .pat-info { min-width: 0; }
+    .pat-name { font-size: 13px; font-weight: 500; color: #e6edf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pat-meta { font-size: 11px; color: #8b949e; margin-top: 2px; }
+    .pat-vitals { text-align: right; }
+    .vital-line { font-size: 12px; font-variant-numeric: tabular-nums; }
+    .vital-line span { color: #8b949e; font-size: 11px; }
+    .alert-item { padding: 12px 16px; border-bottom: 0.5px solid #21262d; display: flex; gap: 10px; align-items: flex-start; }
+    .alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+    .ad-critical { background: #f85149; } .ad-warning { background: #e3b341; }
+    .alert-body { flex: 1; min-width: 0; }
+    .alert-msg { font-size: 12px; color: #e6edf3; line-height: 1.5; }
+    .alert-time { font-size: 11px; color: #8b949e; margin-top: 2px; }
+    .alert-actions { font-size: 11px; color: #58a6ff; margin-top: 4px; line-height: 1.6; }
+    
+    .lower-grid { display: grid; grid-template-columns: 1fr 280px; gap: 12px; margin-top: 16px; }
+    .chart-panel { background: #161b22; border: 0.5px solid #21262d; border-radius: 10px; padding: 14px; }
+    .chart-title { font-size: 12px; color: #8b949e; margin-bottom: 10px; }
+    .detail-panel { padding: 16px; }
+    .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    .vital-card { background: #0d1117; border: 0.5px solid #21262d; border-radius: 8px; padding: 10px 12px; }
+    .vc-label { font-size: 11px; color: #8b949e; }
+    .vc-val { font-size: 18px; font-weight: 500; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .vc-unit { font-size: 11px; color: #8b949e; margin-left: 2px; }
+    .risk-bar-bg { background: #0d1117; border-radius: 20px; height: 8px; overflow: hidden; margin: 8px 0; }
+    .risk-bar { height: 8px; border-radius: 20px; transition: width 0.8s ease; }
+    .suggestion-box { background: #0d1117; border: 0.5px solid #21262d; border-radius: 8px; padding: 12px; margin-top: 10px; }
+    .sug-title { font-size: 11px; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sug-item { font-size: 12px; color: #c9d1d9; padding: 4px 0; display: flex; gap: 6px; line-height: 1.5; }
+    .disclaimer { font-size: 10px; color: #8b949e; margin-top: 8px; font-style: italic; border-top: 0.5px solid #21262d; padding-top: 8px; }
+    .tabs { display: flex; gap: 0; border-bottom: 0.5px solid #21262d; }
+    .tab { padding: 10px 16px; font-size: 12px; cursor: pointer; color: #8b949e; border-bottom: 2px solid transparent; }
+    .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .alert-history { overflow-y: auto; max-height: 480px; }
+
+    /* === 📸 GIANT CAM VIEW LAYOUT WITH PHYSICAL VIDEO SYSTEM === */
+    #stage-camera-view { background: #07090e; padding: 24px; color: #ffffff; }
+    .cam-hdr { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; margin-bottom: 24px; border-bottom: 0.5px solid #58a6ff; }
+    .back-btn { background: #21262d; border: 0.5px solid #30363d; color: #c9d1d9; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .back-btn:hover { background: #30363d; color: #fff; }
+    
+    .cam-page-grid { display: grid; grid-template-columns: 1fr 400px; gap: 24px; }
+    .camera-panel-giant { background: #161b22; border: 1.5px solid #30363d; border-radius: 12px; overflow: hidden; position: relative; height: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    
+    /* HTML5 Hardware Video Element Processing Core */
+    .hardware-cam-element { width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0; transform: scaleX(-1); /* Mirrors the stream for natural feel */ }
+    
+    .camera-feed { width: 100%; height: 100%; background: #020305; position: relative; display: flex; justify-content: center; align-items: center; }
+    .ai-bounding-box { position: absolute; border: 2px dashed #3fb950; border-radius: 4px; width: 150px; height: 150px; top: 20%; left: 38%; z-index: 10; animation: floatTarget 4s ease-in-out infinite; }
+    .ai-bounding-box::before { content: "AI TARGET: FACE (rPPG)"; position: absolute; top: -18px; left: 0; background: #3fb950; color: #000; font-size: 9px; font-weight: bold; padding: 1px 4px; border-radius: 2px; white-space: nowrap; }
+    .ai-chest-box { position: absolute; border: 2px dashed #58a6ff; border-radius: 4px; width: 220px; height: 110px; bottom: 12%; left: 32%; z-index: 10; }
+    .ai-chest-box::before { content: "AI TARGET: CHEST (RESPIRATION)"; position: absolute; top: -18px; left: 0; background: #58a6ff; color: #000; font-size: 9px; font-weight: bold; padding: 1px 4px; border-radius: 2px; white-space: nowrap; }
+    .camera-overlay-metrics { position: absolute; top: 16px; left: 12px; font-family: monospace; font-size: 11px; background: rgba(13,17,23,0.85); border: 0.5px solid #30363d; padding: 12px 16px; border-radius: 6px; line-height: 1.6; pointer-events: none; width: 260px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 20; }
+    .camera-watermark { position: absolute; bottom: 16px; right: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #ffffff; background: #f85149; padding: 4px 10px; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-weight: bold; box-shadow: 0 2px 8px rgba(248,81,73,0.4); z-index: 20; }
+
+    /* === 🚨 CRITICAL INSPECTION TERMINAL STYLES === */
+    #stage-inspection { background: #07090e; padding: 24px; color: #ffffff; }
+    .insp-hdr { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; margin-bottom: 24px; border-bottom: 0.5px solid #f85149; }
+    .insp-grid { display: grid; grid-template-columns: 1fr 440px; gap: 24px; }
+    .insp-camera-wrapper { height: 480px; border: 2px solid #f85149; box-shadow: 0 0 24px rgba(248,81,73,0.15); border-radius: 12px; overflow: hidden; }
+    .insp-main-monitor { background: #161b22; border: 0.5px solid #21262d; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .insp-vitals-display { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .insp-vital-giant { background: #0d1117; border: 0.5px solid #30363d; border-radius: 10px; padding: 14px 10px; text-align: center; }
+    .insp-vital-giant .label { font-size: 11px; color: #8b949e; text-transform: uppercase; }
+    .insp-vital-giant .val { font-size: 28px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .action-alert-card { background: rgba(248,81,73,0.1); border: 0.5px solid rgba(248,81,73,0.4); border-radius: 8px; padding: 12px; color: #f85149; font-size: 13px; font-weight: 600; text-align: center; }
+    .medical-procedure-btn { width: 100%; padding: 12px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .btn-danger-glow { background: #f85149; color: #fff; box-shadow: 0 4px 12px rgba(248,81,73,0.3); }
+    .btn-danger-glow:hover { background: #ff6e66; }
+    .btn-outline { background: transparent; border: 0.5px solid #30363d; color: #e6edf3; }
+    .btn-outline:hover { background: #21262d; }
+
+    /* === 🧠 LLM MODULE STYLES === */
+    .llm-box { background: #0d1117; border: 0.5px solid #30363d; border-radius: 8px; padding: 12px; margin-top: 12px; }
+    .llm-btn { background: #1f6feb; color: white; border: none; border-radius: 6px; padding: 10px; font-size: 12px; font-weight: 600; cursor: pointer; margin-bottom: 10px; width: 100%; transition: background 0.15s; }
+    .llm-btn:hover { background: #388bfd; }
+    .llm-output { font-size: 12px; color: #c9d1d9; white-space: pre-wrap; line-height: 1.5; text-align: left; }
+  </style>
+</head>
+<body>
+
+  <div id="stage-splash" class="view-stage active">
+    <div class="splash-bg-graphic"></div>
+    <div class="splash-title">Caretaker AI</div>
+    <div class="splash-loading-text">Initializing Clinical Node...</div>
+  </div>
+
+  <div id="stage-auth" class="view-stage">
+    <div class="auth-card">
+      <i class="ti ti-activity-heartbeat"></i>
+      <div id="panel-login" class="auth-panel active">
+        <div class="auth-title">Welcome Back</div>
+        <div class="auth-sub">Caretaker AI Clinical Access Gateway</div>
+        <div class="input-group"><label>Login ID / Username</label><input type="text" value="MD-7492-ICU"></div>
+        <div class="input-group"><label>Password</label><input type="password" value="••••••••••••"></div>
+        <button class="auth-btn" onclick="authorizeAccess()">Login to Node</button>
+        <div class="switch-prompt">New clinical staff? <span class="switch-link" onclick="toggleAuthPanels('register')">Create an account</span></div>
+      </div>
+      <div id="panel-register" class="auth-panel">
+        <div class="auth-title">New User Registration</div>
+        <div class="auth-sub">Provision a New Clinical Terminal Identity</div>
+        <div class="input-group"><label>Full Personnel Name</label><input type="text" placeholder="Dr. Jane Doe"></div>
+        <div class="input-group"><label>Requested Login ID</label><input type="text" placeholder="MD-8821-ICU"></div>
+        <div class="input-group"><label>Choose Secure Password</label><input type="password" placeholder="••••••••"></div>
+        <button class="auth-btn" onclick="authorizeAccess()">Register & Initialize Node</button>
+        <div class="switch-prompt">Already registered? <span class="switch-link" onclick="toggleAuthPanels('login')">Welcome back login</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="stage-dashboard" class="view-stage db">
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="hdr-logo"><i class="ti ti-heartbeat" style="font-size:20px;color:#fff"></i></div>
+        <div>
+          <div class="hdr-title">CriticalCare AI — Patient Monitoring System</div>
+          <div class="hdr-sub"><span class="live-dot"></span>Live — Full Stack API Linked Network</div>
+        </div>
+      </div>
+      <div class="hdr-right"><span id="clock" class="time-badge">--:--:--</span><span style="font-size:12px;color:#3fb950"><i class="ti ti-wifi"></i> Core Server Online</span></div>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-card"><div class="metric-label">Total patients</div><div class="metric-val c-blue" id="m-total">0</div><div class="metric-sub">Active monitoring</div></div>
+      <div class="metric-card"><div class="metric-label">Critical</div><div class="metric-val c-red" id="m-critical">0</div><div class="metric-sub">Immediate attention</div></div>
+      <div class="metric-card"><div class="metric-label">Warning</div><div class="metric-val c-orange" id="m-warning">0</div><div class="metric-sub">Close monitoring</div></div>
+      <div class="metric-card"><div class="metric-label">Stable</div><div class="metric-val c-green" id="m-stable">0</div><div class="metric-sub">Normal parameters</div></div>
+    </div>
+
+    <div class="main-grid">
+      <div>
+        <div class="panel">
+          <div class="panel-hdr"><div class="panel-title">Priority Queue — Sorted by Risk Score (Click Patient to Route View)</div><span class="panel-badge">Updates every 5s</span></div>
+          <div class="patients-list" id="patients-list"></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="height: 100%;">
+          <div class="tabs">
+            <div class="tab active" id="tab-btn-detail" onclick="switchTab('detail')">Patient detail</div>
+            <div class="tab" id="tab-btn-alerts" onclick="switchTab('alerts')">Alerts <span id="alert-count-badge">0</span></div>
+          </div>
+          <div class="tab-content active" id="tab-detail"><div class="detail-panel" id="detail-panel">Select patient from queue...</div></div>
+          <div class="tab-content" id="tab-alerts"><div class="alert-history" id="alert-list"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lower-grid">
+      <div class="chart-panel"><div class="chart-title">Risk Distribution breakdown (Ward Status)</div><div style="height:120px;"><canvas id="distChart"></canvas></div></div>
+      <div class="chart-panel" style="display: flex; flex-direction: column; justify-content: center; text-align: center;"><div class="chart-title" style="margin: 0;">Contactless Node Status</div><div style="font-size:20px; font-weight: bold; color: #3fb950; margin-top: 8px;"><i class="ti ti-activity-heartbeat"></i> CV OPTICAL READY</div></div>
+    </div>
+  </div>
+
+  <div id="stage-camera-view" class="view-stage">
+    <div class="cam-hdr">
+      <div>
+        <h1 style="color:#58a6ff; font-size: 24px; font-weight:800; display:flex; align-items:center; gap:10px;">
+          <i class="ti ti-camera shadow-sm"></i> LIVE HARDWARE WEB LENS FEED ACTIVE
+        </h1>
+        <p style="color:#8b949e; font-size:13px; margin-top:4px;">Caretaker AI Computer Vision Core — Live Machine Capture Active</p>
+      </div>
+      <button class="back-btn" onclick="exitCameraPage()"><i class="ti ti-arrow-left"></i> Close Camera Feed</button>
+    </div>
+
+    <div class="cam-page-grid">
+       <div class="camera-panel-giant">
+          <div class="camera-feed">
+            
+            <video id="laptop-hardware-video-stream" class="hardware-cam-element" autoplay playsinline></video>
+            
+            <div class="ai-bounding-box" id="cam-page-box-face"></div>
+            <div class="ai-chest-box"></div>
+            <div class="camera-overlay-metrics" id="camera-page-overlay-text">
+               NODE: WEBCAM_LINK_OK<br>INITIALIZING HARDWARE FEED...
+            </div>
+            <div class="camera-watermark"><span class="live-dot" style="background:#2ebd4f; margin-right:0;"></span>LAPTOP CAM ACTIVE</div>
+          </div>
+       </div>
+
+       <div class="panel" style="padding: 20px; background: #161b22; display: flex; flex-direction: column; justify-content: space-between;" id="camera-page-detail-content"></div>
+    </div>
+  </div>
+
+  <div id="stage-inspection" class="view-stage">
+    <div class="insp-hdr">
+      <div>
+        <h1 style="color:#f85149; font-size: 24px; font-weight:800; display:flex; align-items:center; gap:10px;">
+          <i class="ti ti-alert-triangle animate-pulse"></i> PATIENT CRITICAL INSPECTION TERMINAL
+        </h1>
+        <p style="color:#8b949e; font-size:13px; margin-top:4px;">Caretaker AI Lockdown Session — Immediate Medical Action Required</p>
+      </div>
+      <button class="back-btn" onclick="exitInspectionPage()"><i class="ti ti-arrow-left"></i> Return to Central Ward</button>
+    </div>
+
+    <div class="insp-grid">
+      <div class="camera-panel insp-camera-wrapper">
+         <div class="camera-feed" style="height: 100%;">
+            <video id="laptop-hardware-video-stream-crit" class="hardware-cam-element" autoplay playsinline></video>
+            
+            <div class="ai-bounding-box" style="border-color:#f85149; width: 150px; height: 150px; left:35%;"></div>
+            <div class="ai-chest-box" style="border-color:#f85149; width: 200px; height: 110px; left: 30%;"></div>
+            <div class="camera-overlay-metrics" id="insp-camera-overlay-text" style="border-color: #f85149; background: rgba(20,5,5,0.85); width: 260px;">
+               NODE: CRIT_LOCK_ACQUIRED<br>CONNECTING WEBCAM OVERRIDE...
+            </div>
+            <div class="camera-watermark"><span class="live-dot" style="background:#f85149; margin-right:0;"></span>CRITICAL LOCK FEED</div>
+         </div>
+      </div>
+      <div class="insp-main-monitor" id="inspection-monitor-content"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        document.getElementById('stage-splash').classList.remove('active');
+        document.getElementById('stage-auth').classList.add('active');
+      }, 5000);
+    });
+
+    function toggleAuthPanels(targetPanel) {
+      document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+      if (targetPanel === 'register') {
+        document.getElementById('panel-register').classList.add('active');
+      } else {
+        document.getElementById('panel-login').classList.add('active');
+      }
+    }
+
+    function authorizeAccess() {
+      document.getElementById('stage-auth').classList.remove('active');
+      document.getElementById('stage-dashboard').classList.add('active');
+      document.body.style.overflow = "auto";
+      initCharts();
+      setInterval(updateClock, 1000);
+      setInterval(syncVitalsEngine, 5000);
+      syncVitalsEngine();
+    }
+
+    let selectedId = 'P-001';
+    let inspectionActiveId = null; 
+    let cameraViewActiveId = null; 
+    let distChart;
+    let localPatients = [], localVitals = {}, localHistory = {}, localAlerts = [];
+    let llmCache = {};
+    
+    let audioCtx = null;
+    let buzzerInterval = null;
+    let isBuzzerLooping = false;
+    let activeLocalCamStream = null; // Holds the active WebRTC video stream track node reference
+
+    const rbClass = l => l==='critical'?'rb-critical':l==='warning'?'rb-warning':'rb-stable';
+    const badgeClass = l => l==='critical'?'badge-red':l==='warning'?'badge-orange':'badge-green';
+
+    function escapeHtml(text) {
+      return String(text).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    function playBuzzerSound() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        osc.start(); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+        osc.stop(audioCtx.currentTime + 0.25);
+      } catch (e) { }
+    }
+
+    function manageBuzzer(criticalCount) {
+      if (criticalCount > 0) {
+        if (!isBuzzerLooping) {
+          playBuzzerSound();
+          buzzerInterval = setInterval(playBuzzerSound, 1000);
+          isBuzzerLooping = true;
+        }
+      } else {
+        if (isBuzzerLooping) { clearInterval(buzzerInterval); isBuzzerLooping = false; }
+      }
+    }
+
+    // === 🛠️ HARDWARE WEBCAM ACTIVATE COMMAND PIPELINE ===
+    async function activateHardwareLaptopCam(videoElementId) {
+      try {
+        // Disconnect any lingering camera sessions first to release hardware locks safely
+        stopHardwareLaptopCam();
+        
+        // Request secure laptop hardware camera framework token access bounds from user
+        activeLocalCamStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+            audio: false
+        });
+        
+        const targetVideoTag = document.getElementById(videoElementId);
+        if (targetVideoTag) {
+          targetVideoTag.srcObject = activeLocalCamStream;
+        }
+      } catch (err) {
+        console.error("Hardware Cam Access Rejected or Not Found:", err);
+        alert("Webcam Blocked: Please allow camera permissions in your browser tab address bar to display your face live!");
+      }
+    }
+
+    function stopHardwareLaptopCam() {
+      if (activeLocalCamStream) {
+        activeLocalCamStream.getTracks().forEach(track => track.stop());
+        activeLocalCamStream = null;
+      }
+    }
+
+    async function syncVitalsEngine() {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/update');
+        const data = await response.json();
+        
+        localPatients = data.patients;
+        localVitals = data.current_vitals;
+        localHistory = data.vitals_history;
+        localAlerts = data.alerts;
+
+        renderPatientsQueue();
+        renderActiveDetails();
+        renderAlertsHistory();
+        
+        if (cameraViewActiveId) { syncCameraPageVitalsLive(); }
+        if (inspectionActiveId) { renderInspectionDataLive(); }
+      } catch (error) { console.error("Sync error:", error); }
+    }
+
+    function renderPatientsQueue() {
+      const sorted = [...localPatients].sort((a,b) => (localVitals[b.id]?.risk||0) - (localVitals[a.id]?.risk||0));
+      let crit = 0, warn = 0, stab = 0;
+      
+      let html = sorted.map((p, idx) => {
+        const v = localVitals[p.id];
+        if(!v) return '';
+        if (v.level==='critical') crit++; else if (v.level==='warning') warn++; else stab++;
+        
+        return `<div class="patient-row ${selectedId===p.id?'selected':''}" onclick="handlePatientClick('${p.id}', '${v.level}')">
+          <div class="risk-badge ${rbClass(v.level)}">${v.risk}</div>
+          <div class="pat-info">
+            <div class="pat-name">${idx+1}. ${p.name}</div>
+            <div class="pat-meta">${p.id} · ${p.ward} · Age ${p.age}</div>
+            <div class="pat-meta"><span class="panel-badge ${badgeClass(v.level)}">${v.level.toUpperCase()}</span></div>
+          </div>
+          <div class="pat-vitals">
+            <div class="vital-line">HR: ${v.hr} <span>bpm</span></div>
+            <div class="vital-line">SpO₂: ${v.spo2} <span>%</span></div>
+            <div class="vital-line">${v.sbp}/${v.dbp} <span>mmHg</span></div>
+          </div>
+        </div>`;
+      }).join('');
+
+      document.getElementById('patients-list').innerHTML = html;
+      document.getElementById('m-total').textContent = localPatients.length;
+      document.getElementById('m-critical').textContent = crit;
+      document.getElementById('m-warning').textContent = warn;
+      document.getElementById('m-stable').textContent = stab;
+      
+      manageBuzzer(crit);
+      distChart.data.datasets[0].data = [crit, warn, stab];
+      distChart.update('none');
+    }
+
+    function handlePatientClick(id, level) {
+      if (level === 'critical') {
+        inspectionActiveId = id;
+        renderInspectionDataLive();
+        document.getElementById('stage-dashboard').classList.remove('active');
+        document.getElementById('stage-inspection').classList.add('active');
+        
+        // BOOT REAL CRITICAL LAPTOP WEBCAM FEED
+        activateHardwareLaptopCam('laptop-hardware-video-stream-crit');
+      } else {
+        cameraViewActiveId = id;
+        selectedId = id; 
+        syncCameraPageVitalsLive();
+        document.getElementById('stage-dashboard').classList.remove('active');
+        document.getElementById('stage-camera-view').classList.add('active');
+        
+        // BOOT REAL STANDALONE STANDARD LAPTOP WEBCAM FEED
+        activateHardwareLaptopCam('laptop-hardware-video-stream');
+      }
+      window.scrollTo(0,0);
+    }
+
+    function exitCameraPage() {
+      stopHardwareLaptopCam(); // Safely kill hardware camera loop thread reference
+      cameraViewActiveId = null;
+      document.getElementById('stage-camera-view').classList.remove('active');
+      document.getElementById('stage-dashboard').classList.add('active');
+      renderActiveDetails();
+      renderPatientsQueue();
+    }
+
+    function exitInspectionPage() {
+      stopHardwareLaptopCam(); // Safely kill hardware camera loop thread reference
+      inspectionActiveId = null;
+      document.getElementById('stage-inspection').classList.remove('active');
+      document.getElementById('stage-dashboard').classList.add('active');
+      renderActiveDetails();
+      renderPatientsQueue();
+    }
+
+    function syncCameraPageVitalsLive() {
+      const p = localPatients.find(x => x.id === cameraViewActiveId);
+      const v = localVitals[cameraViewActiveId];
+      if (!p || !v) return;
+
+      const boxBorderColor = v.level === 'warning' ? '#e3b341' : '#3fb950';
+      document.getElementById('cam-page-box-face').style.borderColor = boxBorderColor;
+
+      document.getElementById('camera-page-overlay-text').innerHTML = `
+        HARDWARE FEED LINK: LAPTOP_CAM_01<br>
+        TARGET PROFILE ID: ${p.id}<br>
+        NAME MATRIX LOGGED: ${p.name.toUpperCase()}<br>
+        STATUS LOGS: WEBCAM HARDWARE PIPELINE STREAMING<br>
+        -----------------------------<br>
+        [AI rPPG ANALYSIS] PULSE RATE: ${v.hr} bpm<br>
+        [AI OPTICAL MOVE] RESPARATION: ${v.rr} /min<br>
+        [AI THERMAL SCAN] CORE TEMP: ${v.temp} °C
+      `;
+
+      const riskColor = v.level === 'warning' ? '#e3b341' : '#3fb950';
+      const matchAlerts = localAlerts.filter(a => a.patientId === cameraViewActiveId);
+      let sugHtml = '';
+      if(matchAlerts.length > 0) {
+        matchAlerts.slice(0,1).forEach(m => {
+          sugHtml += `<div style="font-size:11px;color:${riskColor};font-weight:600;margin-bottom:4px;">${m.msg}</div>`;
+          m.actions.forEach(a => { sugHtml += `<div class="sug-item" style="font-size:11px;"><i class="ti ti-arrow-right" style="color:#58a6ff;"></i>${a}</div>`; });
+        });
+      } else { sugHtml = '<div class="sug-item" style="font-size:11px;"><i class="ti ti-check" style="color:#3fb950"></i>Homeostasis baseline conditions met. No clinical flags.</div>'; }
+
+      const llmText = llmCache[p.id] || "Click below to request local Ollama llama3.2 inference insights.";
+
+      document.getElementById('camera-page-detail-content').innerHTML = `
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+             <h3 style="font-size:18px;">${p.name}</h3>
+             <span class="panel-badge ${badgeClass(v.level)}">${v.level.toUpperCase()}</span>
+          </div>
+          <div style="font-size:12px; color:#8b949e; margin-bottom:16px;">Ward: ${p.ward} · Gender: ${p.gender} · Age: ${p.age}</div>
+          
+          <div style="margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:#8b949e; margin-bottom:4px;"><span>AI Risk Score</span><span>${v.risk}/100</span></div>
+            <div class="risk-bar-bg"><div class="risk-bar" style="width:${v.risk}%; background:${riskColor}"></div></div>
+          </div>
+
+          <div class="detail-grid" style="grid-template-columns:1fr 1fr; gap:8px;">
+            <div class="vital-card"><div class="vc-label">Heart rate</div><div class="vc-val" style="font-size:15px;">${v.hr}<span style="font-size:10px; color:#8b949e;">bpm</span></div></div>
+            <div class="vital-card"><div class="vc-label">SpO₂</div><div class="vc-val" style="font-size:15px;">${v.spo2}<span style="font-size:10px; color:#8b949e;">%</span></div></div>
+            <div class="vital-card"><div class="vc-label">Blood Pressure</div><div class="vc-val" style="font-size:13px; margin-top:5px;">${v.sbp}/${v.dbp}</div></div>
+            <div class="vital-card"><div class="vc-label">Temperature</div><div class="vc-val" style="font-size:15px;">${v.temp}<span style="font-size:10px; color:#8b949e;">°C</span></div></div>
+          </div>
+        </div>
+
+        <div class="suggestion-box" style="margin-top:12px; padding:8px;">
+          <div class="sug-title" style="font-size:10px;"><i class="ti ti-brain"></i> Decision Support Diagnostics</div>
+          ${sugHtml}
+          <div class="llm-box" style="margin-top:8px; padding:6px;">
+            <button class="llm-btn" type="button" style="padding:6px; font-size:11px;" onclick="getLLMAdvice('${p.id}')">Generate Decision advice</button>
+            <div class="llm-output" id="llm-output-${p.id}" style="font-size:11px; max-height:100px; overflow-y:auto;">${escapeHtml(llmText)}</div>
+          </div>
+        </div>
+        <button class="medical-procedure-btn btn-outline" style="margin-top:12px; padding:8px; font-size:12px;" onclick="exitCameraPage()"><i class="ti ti-circle-x"></i> Exit Camera Session</button>
+      `;
+    }
+
+    function renderInspectionDataLive() {
+      const p = localPatients.find(x => x.id === inspectionActiveId);
+      const v = localVitals[inspectionActiveId];
+      if (!p || !v) return;
+
+      document.getElementById('insp-camera-overlay-text').innerHTML = `
+        HARDWARE CRIT OVERRIDE: WEB_CAM_ACTIVE<br>
+        LOCK RECOGNITION TARGET ID: ${p.id}<br>
+        NAME ENCODED: ${p.name.toUpperCase()}<br>
+        ---------------------------------<br>
+        CV ANALYTICS HEART RATE: ${v.hr} bpm<br>
+        CV ANALYTICS RESPIRATION: ${v.rr} /min<br>
+        CV ANALYTICS TEMP: ${v.temp} °C
+      `;
+
+      document.getElementById('inspection-monitor-content').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h2 style="font-size: 22px; font-weight:800; color:#fff;">${p.name}</h2>
+            <p style="color:#8b949e; font-size:12px; margin-top:2px;">Key ID: ${p.id} · ${p.gender} · Age ${p.age} · ${p.ward}</p>
+          </div>
+          <span style="background:#f85149; color:#fff; font-size:12px; font-weight:bold; padding:4px 12px; border-radius:4px;">
+             AI RISK SCORE: ${v.risk}/100
+          </div>
+        </div>
+
+        <div class="insp-vitals-display">
+          <div class="insp-vital-giant">
+            <div class="label" style="color:#f85149;">Heart Rate</div>
+            <div class="val c-red">${v.hr}<span style="font-size:12px; color:#8b949e; font-weight:normal;"> bpm</span></div>
+          </div>
+          <div class="insp-vital-giant">
+            <div class="label" style="color:#58a6ff;">SpO₂ Saturation</div>
+            <div class="val c-blue">${v.spo2}<span style="font-size:12px; color:#8b949e; font-weight:normal;"> %</span></div>
+          </div>
+          <div class="insp-vital-giant">
+            <div class="label" style="color:#e3b341;">Blood Pressure</div>
+            <div class="val text-white">${v.sbp}/${v.dbp}<span style="font-size:12px; color:#8b949e; font-weight:normal;"> mmHg</span></div>
+          </div>
+          <div class="insp-vital-giant">
+            <div class="label" style="color:#3fb950;">Core Temp</div>
+            <div class="val c-green">${v.temp}<span style="font-size:12px; color:#8b949e; font-weight:normal;"> °C</span></div>
+          </div>
+        </div>
+
+        <div class="action-alert-card"><i class="ti ti-shield-alert"></i> PATIENT INSTABILITY DETECTED · TRIGGER OVERRIDE PROTOCOLS</div>
+        
+        <button class="medical-procedure-btn btn-danger-glow" onclick="alert('Emergency Alert broadcasted to Ward Crash Cart Team!')"><i class="ti ti-bell-ringing"></i> Dispatch Ward Crash Cart Team</button>
+        <button class="medical-procedure-btn btn-outline" onclick="alert('Elevated Oxygen flow override protocol sent.')"><i class="ti ti-oxygen"></i> Trigger High-Flow Oxygen Supply</button>
+        <button class="medical-procedure-btn btn-outline" onclick="alert('Injecting Tele-ICU video consultation link.')"><i class="ti ti-video"></i> Connect Remote ICU Specialist</button>
+      `;
+    }
+
+    function renderActiveDetails() {
+      const p = localPatients.find(x=>x.id===selectedId);
+      const v = localVitals[selectedId];
+      if (!p || !v) return;
+      const riskColor = v.level==='critical'?'#f85149':v.level==='warning'?'#e3b341':'#3fb950';
+
+      const matchAlerts = localAlerts.filter(a => a.patientId === selectedId);
+      let sugHtml = '';
+      if(matchAlerts.length > 0) {
+        matchAlerts.slice(0,2).forEach(m => {
+          sugHtml += `<div style="margin-bottom:8px;"><div style="font-size:11px;color:${riskColor};font-weight:500;margin-bottom:4px;">${m.msg}</div>`;
+          m.actions.forEach(a => { sugHtml += `<div class="sug-item"><i class="ti ti-arrow-right" style="color:#58a6ff;"></i>${a}</div>`; });
+          sugHtml += '</div>';
+        });
+      } else { sugHtml = '<div class="sug-item"><i class="ti ti-check" style="color:#3fb950"></i>Select any patient row block to engage clinical lens.</div>'; }
+
+      const llmText = llmCache[p.id] || "Click the button to generate LLM-based medical support advice.";
+
+      document.getElementById('detail-panel').innerHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:14px">
+          <div><h3>${p.name}</h3><div class="pat-meta">${p.id} · ${p.ward}</div></div>
+          <span class="panel-badge ${badgeClass(v.level)}">${v.level.toUpperCase()}</span>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#8b949e"><span>AI Risk Score</span><span>${v.risk}/100</span></div>
+          <div class="risk-bar-bg"><div class="risk-bar" style="width:${v.risk}%;background:${riskColor}"></div></div>
+        </div>
+        <div class="detail-grid">
+          <div class="vital-card"><div class="vc-label">Heart rate</div><div class="vc-val">${v.hr}<span class="vc-unit">bpm</span></div></div>
+          <div class="vital-card"><div class="vc-label">SpO₂</div><div class="vc-val">${v.spo2}<span class="vc-unit">%</span></div></div>
+          <div class="vital-card"><div class="vc-label">Blood pressure</div><div class="vc-val">${v.sbp}/${v.dbp}<span class="vc-unit">mmHg</span></div></div>
+          <div class="vital-card"><div class="vc-label">Temperature</div><div class="vc-val">${v.temp}<span class="vc-unit">°C</span></div></div>
+          <div class="vital-card"><div class="vc-label">Resp. rate</div><div class="vc-val">${v.rr}<span class="vc-unit">/min</span></div></div>
+          <div class="vital-card"><div class="vc-label">Age Index</div><div class="vc-val c-blue">${p.age}<span class="vc-unit">yrs</span></div></div>
+        </div>
+        <div class="suggestion-box">
+          <div class="sug-title"><i class="ti ti-brain"></i> AI Decision Support Engine</div>
+          ${sugHtml}
+          
+          <div class="llm-box">
+            <button class="llm-btn" type="button" onclick="getLLMAdvice('${p.id}')">Generate LLM Advice</button>
+            <div class="llm-output" id="llm-output-${p.id}">${escapeHtml(llmText)}</div>
+          </div>
+          <div class="disclaimer">Decision support tracking output. Always cross reference medical guidelines.</div>
+        </div>`;
+    }
+
+    async function getLLMAdvice(patientId) {
+      const outputBox = document.getElementById(`llm-output-${patientId}`);
+      llmCache[patientId] = "Generating LLM advice using llama3.2...";
+      if (outputBox) { outputBox.textContent = llmCache[patientId]; }
+
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/llm/${patientId}`);
+        const data = await response.json();
+        llmCache[patientId] = data.error ? data.error : data.llm_advice;
+
+        const latestOutputBox = document.getElementById(`llm-output-${patientId}`);
+        if (latestOutputBox) { latestOutputBox.textContent = llmCache[patientId]; }
+      } catch (error) {
+        llmCache[patientId] = "Error connecting to LLM backend. Make sure backend and Ollama are running.";
+        const latestOutputBox = document.getElementById(`llm-output-${patientId}`);
+        if (latestOutputBox) { latestOutputBox.textContent = llmCache[patientId]; }
+      }
+    }
+
+    function renderAlertsHistory() {
+      const el = document.getElementById('alert-list');
+      if (localAlerts.length === 0) {
+        el.innerHTML = '<div style="padding:40px 16px;color:#8b949e;font-size:12px;text-align:center">No system notifications found</div>';
+        return;
+      }
+      el.innerHTML = localAlerts.slice(0, 15).map(a => `
+        <div class="alert-item">
+          <div class="alert-dot ad-${a.level}"></div>
+          <div class="alert-body">
+            <div class="alert-msg"><strong style="color:${a.level==='critical'?'#f85149':'#e3b341'}">${a.patient}</strong> (${a.ward}) — ${a.msg}</div>
+            <div class="alert-time">${a.time}</div>
+            <div class="alert-actions">${a.actions.map(x => '→ ' + x).join('<br>')}</div>
+          </div>
+        </div>`).join('');
+      document.getElementById('alert-count-badge').textContent = localAlerts.filter(a => a.level === 'critical').length;
+    }
+
+    function switchTab(n) { 
+      document.getElementById('tab-detail').classList.toggle('active', n==='detail'); 
+      document.getElementById('tab-alerts').classList.toggle('active', n==='alerts');
+      document.getElementById('tab-btn-detail').classList.toggle('active', n==='detail'); 
+      document.getElementById('tab-btn-alerts').classList.toggle('active', n==='alerts');
+    }
+    
+    function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-IN', {hour12:false}); }
+
+    function initCharts() {
+      distChart = new Chart(document.getElementById('distChart'), {type:'doughnut', data:{labels:['Crit','Warn','Stab'], datasets:[{data:[0,0,8], backgroundColor:['#f85149','#e3b341','#3fb950'], borderWidth:0}]}, options:{responsive:true,maintainAspectRatio:false,cutout:'75%',plugins:{legend:{display:false}}}});
+    }
+  </script>
+</body>
+</html>
